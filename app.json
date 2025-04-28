@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "UEvent",
+    "slug": "UEvent",
+    "version": "1.2.0",
+    "orientation": "portrait",
+    "icon": "./app/assets/logowhitebg.png",
+    "splash": {
+      "image": "./app/assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffcb05"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "config": {
+        "googleSignIn": {
+          "reservedClientId": "com.googleusercontent.apps.343030781035-hndrhauj2kucaubkih4gn94o2lukqkcb"
+        },
+        "googleMapsApiKey": "AIzaSyCCKS1n0cIEBst8NxagDkl1t81TBsfe6aQ"
+      },
+      "bundleIdentifier": "com.eventhub.eventhubum",
+      "buildNumber": "1.2.4",
+      "supportsTablet": false,
+      "userInterfaceStyle": "light",
+      "infoPlist": {
+        "UIUserInterfaceStyle": "Light",
+        "NSPhotoLibraryUsageDescription": "Need access to users' photo libraries so they can upload images for their events.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      },
+      "associatedDomains": [
+        "applinks:eventhubum.com",
+        "applinks:uevent.app"
+      ]
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./app/assets/logo.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "web": {
+      "favicon": "./app/assets/favicon.png"
+    },
+    "scheme": "https"
+  }
+}

@@ -1,0 +1,210 @@
+import React from 'react';
+import { Dimensions, useColorScheme } from 'react-native';
+import * as Linking from 'expo-linking';
+import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const imageBase = 'https://uevent.app';
+const baseURL = 'https://uevent.app/EventHub/rest';
+const usersURL = baseURL + '/users';
+const eventsURL = baseURL + '/events';
+//'https://retoolapi.dev/CNVOvx/collisionevents'
+//'https://retoolapi.dev/QYxrD6/bugtests'
+const followersURL = baseURL + '/followers';
+const inviteesURL = baseURL + '/invitees';
+const attendeesURL = baseURL + '/attendees';
+const updatesURL = baseURL + '/updates';
+
+const apiKeysURL = baseURL + '/api/key'
+const categoriesURL = baseURL + '/categories';
+
+const categoryAssets = {Extracurriculars: require('./app/assets/extracurriculars.png'),
+Parties: require('./app/assets/parties.png'), Social: require('./app/assets/social.png'),
+Career: require('./app/assets/career.png'), Networking: require('./app/assets/networking.png'),
+Community: require('./app/assets/test2.png'), FairFestival: require('./app/assets/festival.png'),
+GreekLife: require('./app/assets/greeklife.png'), Sports: require('./app/assets/sports.png'),
+Games: require('./app/assets/games.png'), Cultural: require('./app/assets/cultural.png'), 
+Activism: require('./app/assets/activism.png'), Music: require('./app/assets/music.png'), 
+ArtDesign: require('./app/assets/artdesign.png'), FoodDrink: require('./app/assets/fooddrink.png'), 
+Performance: require('./app/assets/performance.png'),Presentation: require('./app/assets/presentation.png'),
+Exhibition: require('./app/assets/exhibition.png'), Academic: require('./app/assets/academic.png'),
+ScienceTech: require('./app/assets/science.png'), BusinessProfessional: require('./app/assets/business.png'),
+Business: require('./app/assets/business.png'), SaleFundraiser: require('./app/assets/fundraiser.png'),
+CareerProfessional: require('./app/assets/career.png'), FunEntertainment: require('./app/assets/extracurriculars.png'),
+Other: require('./app/assets/other.png'), ServiceActivism: require('./app/assets/activism.png'), MusicDance: require('./app/assets/music.png'),
+};
+
+const categories = [];
+const serverErrorMessage = "Sorry, we couldn't get your information. It might be a connection issue, please try again later :(";
+const pushToken = "N/A";
+const pushPermission = false;
+const BACKGROUND_NOTIFICATION_TASK = 'BACKGROUND-NOTIFICATION-TASK';
+
+const HR = (pixelNumber) => {
+    const windowHeight = Dimensions.get('window').height;
+    const responsiveMultiplier = 926 / pixelNumber;
+    const responsiveNumber = windowHeight / responsiveMultiplier;
+    return responsiveNumber;
+}
+
+const WR = (pixelNumber) => {
+    const windowWidth = Dimensions.get('window').width;
+    const responsiveMultiplier = 428 / pixelNumber;
+    const responsiveNumber = windowWidth / responsiveMultiplier;
+    return responsiveNumber;
+}
+const formFontAdj = (pixelNumber) => {
+    const windowHeight = Dimensions.get('window').height;
+    return pixelNumber * (windowHeight + 300) * 1.0/(926+300);
+}
+function createDateAsUTC(year,month,date,hours,minutes,seconds) {
+    return new Date(Date.UTC(parseInt(year), parseInt(month-1), parseInt(date), parseInt(hours), parseInt(minutes), parseInt(seconds)));
+}
+
+const formatDate = (dateFromApi) => { //convert date from api to readable form in the right time zone
+    let dateobj = createDateAsUTC(dateFromApi.substr(0,4), dateFromApi.substr(5,2), dateFromApi.substr(8,2),
+        dateFromApi.substr(11,2), dateFromApi.substr(14,2), dateFromApi.substr(17,2));
+
+    let formattedDate = dateobj.toLocaleDateString('en-US',{ weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    let formattedTime = dateobj.toLocaleTimeString('en-US');
+
+    return formattedDate.substr(0,formattedDate.lastIndexOf(',')) + ' ' + 
+        formattedTime.substr(0,formattedTime.lastIndexOf(':')) + formattedTime.substr(formattedTime.length-2);
+}
+const extraFormat = (startTimeString, endTimeString) => { //returns one combined string
+    if (startTimeString.substring(0,11) == endTimeString.substring(0,11))
+        return startTimeString.substring(0,startTimeString[10]==' '?10:11) + ', ' + startTimeString.substr(11) + ' - ' + endTimeString.substring(endTimeString[11]==' '?12:11);
+    else {
+        return startTimeString + ' - ' + endTimeString;
+    }   
+}
+const serverValidation = (response) => { //only use on messages, not jsons
+    if(response != 'Fail' && response != 'Validation Error')
+      return true;
+    return false;
+}
+const getLocationName = (address) => {
+    return address.substring(0,address.indexOf(','));
+}
+const scheduleNoti = async (eventId, eventName, eventStartTime) => {    
+        try {    
+            const notiId = await AsyncStorage.getItem('@event' + eventId);
+            const now = new Date();
+            const trigger = new Date(eventStartTime);
+            trigger.setHours(trigger.getHours() - 1);
+            console.log(eventStartTime);
+            console.log(trigger.toLocaleTimeString());
+            if(notiId == null && now < trigger) {
+                console.log('scheduling notification');
+                const notiId = await Notifications.scheduleNotificationAsync({
+                    identifier: eventId.toString(),
+                    content: {
+                        title: 'Reminder',
+                        body: eventName + ' is starting in 1 hour!',
+                        data: {
+                            eventId: eventId.toString(),
+                            type: 'Reminder'
+                        },
+                        sound: true,
+                    },
+                    trigger,
+                });
+                try {
+                    await AsyncStorage.setItem('@event' + eventId, notiId);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        } catch(e) {
+            console.error(e);
+        }
+}
+const cancelNoti = async (eventId) => {
+    console.log('cancelling notification');
+    try {
+        const notiId = await AsyncStorage.getItem('@event' + eventId);
+        if(notiId != null) {
+            console.log('not null');
+            await Notifications.cancelScheduledNotificationAsync(notiId);
+            try {
+                await AsyncStorage.removeItem('@event' + eventId);
+            } catch(e) {
+                console.error(e);
+            }
+        }
+    }
+    catch(e) {
+        console.error(e);
+    }
+}
+const sendOrganizerNoti = (hostId, eventId, eventName, attendeeName) =>{
+    fetch(usersURL + '/getPushToken/' + hostId, {
+        method: 'GET',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json'
+        }
+    }).then((response) => response.json())
+      .then((json) => {
+        sendTheNotis(json, eventId, eventName, attendeeName);
+      })
+      .catch((error) => {console.error(error)});
+}
+const sendTheNotis = (userPushTokens, eventId, eventName, attendeeName) => { //comes as a length 1 array
+    console.log(userPushTokens);
+    let titleEventName = eventName;
+    if(titleEventName.length >= 45)
+        titleEventName = titleEventName.substr(0,33).trim() + '...';
+    
+    let postArray = [];
+    for(let i=0; i<userPushTokens.length; i++) {
+        postArray.push({
+            "to": userPushTokens[i].pushToken,
+            "sound": "default",
+            "title": titleEventName,
+            "body": attendeeName + " is coming to your event!",
+            "data": {
+                eventId: eventId,
+                type: 'Attendee',
+            }
+        })
+    }
+    fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+            host: 'exp.host',
+            accept: 'application/json',
+            'accept-encoding': 'gzip, deflate',
+            'content-type': 'application/json'
+        },
+        body: JSON.stringify(postArray)
+    }).then((response) => response.json())
+    .then((json) => {
+        handleErrors(json,userPushTokens);
+    })
+    .catch((error) => console.error(error));
+}
+const handleErrors = async (pushResponse,userPushTokens) => {
+    console.log(pushResponse);
+    if(pushResponse.hasOwnProperty('data')) {
+        for(let i=0;i<pushResponse.data.length;i++) {
+            if(pushResponse.data[i].status == "error") {
+                if(pushResponse.data[i].details.error == "DeviceNotRegistered") {
+                    await fetch(usersURL + '/deletePushToken',{
+                        method: 'DELETE',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json'
+                            },
+                        body: JSON.stringify({
+                            pushToken: userPushTokens[i].pushToken
+                        })
+                    })
+                }
+            }
+        }
+    }
+}
+export default  {imageBase,baseURL,usersURL, eventsURL, followersURL, inviteesURL, attendeesURL,
+    updatesURL, apiKeysURL, categoriesURL, categoryAssets, categories, serverErrorMessage, pushToken, pushPermission, BACKGROUND_NOTIFICATION_TASK, 
+    HR, WR, formFontAdj, formatDate, createDateAsUTC, extraFormat, serverValidation, getLocationName, scheduleNoti, cancelNoti, sendOrganizerNoti, handleErrors}
